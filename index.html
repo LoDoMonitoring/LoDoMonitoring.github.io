@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LodoMonitoring — Minecraft PE/BE серверы</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="images/logo.png" alt="LodoMonitoring" width="40">
+            <h1>LodoMonitoring</h1>
+        </div>
+        <nav>
+            <a href="index.html">Главная</a>
+            <a href="dashboard.html">Добавить сервер</a>
+            <span id="auth-section"></span>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Серверы Minecraft PE / Bedrock</h2>
+        <div class="filters">
+            <input type="text" id="searchInput" placeholder="Поиск по названию или IP...">
+            <select id="sortSelect">
+                <option value="votes">По голосам</option>
+                <option value="newest">Сначала новые</option>
+                <option value="oldest">Сначала старые</option>
+                <option value="name">По названию</option>
+            </select>
+        </div>
+        <div id="server-list" class="server-grid"></div>
+    </main>
+
+    <script type="module" src="js/init.js"></script>
+    <script type="module" src="js/servers.js"></script>
+</body>
+</html>
