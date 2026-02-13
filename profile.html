@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои серверы — LodoMonitoring</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="images/logo.png" alt="LodoMonitoring" width="40">
+            <h1>LodoMonitoring</h1>
+        </div>
+        <nav>
+            <a href="index.html">Главная</a>
+            <a href="dashboard.html">Добавить сервер</a>
+            <span id="auth-section"></span>
+        </nav>
+    </header>
+
+    <main>
+        <h2>👤 Мои серверы</h2>
+        <div id="myServersList" class="server-grid"></div>
+        <div id="noServers" style="text-align: center; margin-top: 2rem; color: #b0e0e6; display: none;">
+            <p>Вы ещё не добавили ни одного сервера.</p>
+            <a href="dashboard.html" class="btn">➕ Добавить сервер</a>
+        </div>
+    </main>
+
+    <script type="module">
+        import { auth } from './js/firebase-config.js';
+        import { getServers, deleteServer } from './js/servers.js';
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { renderServerCard } from './js/main.js';
+
+        const container = document.getElementById('myServersList');
+        const noServersDiv = document.getElementById('noServers');
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Получаем серверы только этого пользователя
+            const servers = await getServers(user.uid);
+            
+            if (servers.length === 0) {
+                container.innerHTML = '';
+                noServersDiv.style.display = 'block';
+                return;
+            }
+
+            noServersDiv.style.display = 'none';
+            container.innerHTML = '';
+
+            servers.forEach(server => {
+                const card = renderServerCard(server);
+                
+                // Добавляем кнопку удаления (только для владельца)
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-small';
+                deleteBtn.style.backgroundColor = '#c62828';
+                deleteBtn.textContent = 'Удалить';
+                deleteBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    if (!confirm('Точно удалить сервер?')) return;
+                    try {
+                        await deleteServer(server.id, server.ownerId);
+                        card.remove(); // убираем карточку
+                        // Проверяем, остались ли серверы
+                        if (container.children.length === 0) {
+                            noServersDiv.style.display = 'block';
+                        }
+                    } catch (err) {
+                        alert('Ошибка удаления: ' + err.message);
+                    }
+                });
+
+                // Кнопка редактирования (заглушка, можно сделать позже)
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-small';
+                editBtn.style.backgroundColor = '#ffa726';
+                editBtn.textContent = 'Редактировать';
+                editBtn.addEventListener('click', () => {
+                    window.location.href = `edit-server.html?id=${server.id}`;
+                });
+
+                const actionsDiv = document.createElement('div');
+                actionsDiv.style.display = 'flex';
+                actionsDiv.style.gap = '0.5rem';
+                actionsDiv.style.marginTop = '0.8rem';
+                actionsDiv.appendChild(editBtn);
+                actionsDiv.appendChild(deleteBtn);
+
+                card.querySelector('.server-meta').after(actionsDiv); // вставить после meta
+                container.appendChild(card);
+            });
+        });
+    </script>
+</body>
+</html>
