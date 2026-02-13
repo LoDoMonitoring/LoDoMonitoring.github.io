@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавить сервер — LodoMonitoring</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+            }
+        }
+    </script>
+    <style>
+        .dashboard-form {
+            max-width: 600px;
+            margin: 2rem auto;
+            background: #112f3f;
+            padding: 2rem;
+            border-radius: 16px;
+        }
+        .dashboard-form h2 {
+            margin-bottom: 1.5rem;
+            color: #ffb74d;
+        }
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #b0e0e6;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 8px;
+            border: 1px solid #1e4a5f;
+            background: #0b1a2b;
+            color: white;
+            font-size: 1rem;
+        }
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        .btn-submit {
+            background: #2e7d5e;
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            width: 100%;
+        }
+        .btn-submit:hover {
+            background: #3b9b73;
+        }
+        .message {
+            margin-top: 1rem;
+            text-align: center;
+            padding: 0.5rem;
+            border-radius: 8px;
+        }
+        .success {
+            background: #2e7d5e80;
+            color: #c8e6c9;
+        }
+        .error {
+            background: #d32f2f80;
+            color: #ffcdd2;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="images/logo.png" alt="LodoMonitoring" width="40">
+            <h1>LodoMonitoring</h1>
+        </div>
+        <nav>
+            <a href="index.html">Главная</a>
+            <a href="dashboard.html">Добавить сервер</a>
+            <span id="auth-section"></span>
+        </nav>
+    </header>
+
+    <main>
+        <div class="dashboard-form">
+            <h2>➕ Добавить свой сервер</h2>
+            <form id="addServerForm">
+                <div class="form-group">
+                    <label>Название сервера *</label>
+                    <input type="text" id="serverName" required placeholder="Например: FunCraft PE">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>IP адрес *</label>
+                        <input type="text" id="serverIp" required placeholder="play.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Порт</label>
+                        <input type="number" id="serverPort" value="19132" placeholder="19132">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Версия (необязательно)</label>
+                    <input type="text" id="serverVersion" placeholder="Например: 1.20.50">
+                </div>
+
+                <div class="form-group">
+                    <label>Описание</label>
+                    <textarea id="serverDesc" placeholder="Кратко о сервере, особенности..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-submit">📌 Добавить сервер</button>
+                <div id="formMessage" class="message"></div>
+            </form>
+        </div>
+    </main>
+
+    <script type="module">
+        import { auth } from './js/firebase-config.js';
+        import { addServer } from './js/servers.js';
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Проверка авторизации
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                window.location.href = 'login.html';
+            }
+        });
+
+        const form = document.getElementById('addServerForm');
+        const messageDiv = document.getElementById('formMessage');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            messageDiv.className = 'message';
+            messageDiv.textContent = '';
+
+            const name = document.getElementById('serverName').value.trim();
+            const ip = document.getElementById('serverIp').value.trim();
+            const port = parseInt(document.getElementById('serverPort').value) || 19132;
+            const version = document.getElementById('serverVersion').value.trim() || '';
+            const description = document.getElementById('serverDesc').value.trim() || '';
+
+            try {
+                await addServer({ name, ip, port, description, version });
+                messageDiv.className = 'message success';
+                messageDiv.textContent = '✅ Сервер успешно добавлен! Он появится в списке через несколько секунд.';
+                form.reset();
+                document.getElementById('serverPort').value = 19132;
+            } catch (err) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = '❌ Ошибка: ' + err.message;
+            }
+        });
+    </script>
+</body>
+</html>
