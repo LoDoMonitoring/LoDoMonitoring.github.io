@@ -1,0 +1,18 @@
+// Получить один сервер по ID
+export async function getServerById(serverId) {
+    const docRef = doc(db, 'servers', serverId);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() };
+}
+
+// Удалить сервер (проверка прав уже внутри)
+export async function deleteServer(serverId, ownerId) {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Не авторизован');
+    if (user.uid !== ownerId) {
+        // можно добавить проверку на админа
+        throw new Error('Нет прав на удаление');
+    }
+    await deleteDoc(doc(db, 'servers', serverId));
+}
