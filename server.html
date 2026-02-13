@@ -1,18 +1,247 @@
-// Получить один сервер по ID
-export async function getServerById(serverId) {
-    const docRef = doc(db, 'servers', serverId);
-    const snap = await getDoc(docRef);
-    if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() };
-}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сервер — LodoMonitoring</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+            }
+        }
+    </script>
+    <style>
+        .server-detail {
+            max-width: 700px;
+            margin: 2rem auto;
+            background: #112f3f;
+            padding: 2rem;
+            border-radius: 20px;
+        }
+        .server-detail h2 {
+            color: #ffb74d;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .server-detail .ip {
+            font-size: 1.3rem;
+            background: #0b1a2b;
+            display: inline-block;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            margin-bottom: 1rem;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        .info-item {
+            background: #1e3a4a;
+            padding: 0.8rem;
+            border-radius: 10px;
+        }
+        .info-item .label {
+            color: #b0e0e6;
+            font-size: 0.9rem;
+        }
+        .info-item .value {
+            font-size: 1.4rem;
+            font-weight: bold;
+        }
+        .status-badge {
+            font-size: 1.5rem;
+            margin: 1rem 0;
+        }
+        .vote-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .vote-btn {
+            background: #ffb74d;
+            color: #0b1a2b;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .vote-btn:hover {
+            background: #ffa726;
+        }
+        .owner-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            border-top: 1px solid #1e4a5f;
+            padding-top: 1.5rem;
+        }
+        .delete-btn {
+            background: #c62828;
+        }
+        .delete-btn:hover {
+            background: #b71c1c;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="images/logo.png" alt="LodoMonitoring" width="40">
+            <h1>LodoMonitoring</h1>
+        </div>
+        <nav>
+            <a href="index.html">Главная</a>
+            <a href="dashboard.html">Добавить сервер</a>
+            <span id="auth-section"></span>
+        </nav>
+    </header>
 
-// Удалить сервер (проверка прав уже внутри)
-export async function deleteServer(serverId, ownerId) {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Не авторизован');
-    if (user.uid !== ownerId) {
-        // можно добавить проверку на админа
-        throw new Error('Нет прав на удаление');
-    }
-    await deleteDoc(doc(db, 'servers', serverId));
-}
+    <main>
+        <div id="serverDetail" class="server-detail">
+            <!-- Здесь будет динамически загруженная информация -->
+            <div style="text-align: center;">Загрузка...</div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { auth } from './js/firebase-config.js';
+        import { db } from './js/firebase-config.js';
+        import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { checkServerStatus } from './js/main.js';
+
+        const serverId = new URLSearchParams(window.location.search).get('id');
+        const container = document.getElementById('serverDetail');
+
+        if (!serverId) {
+            container.innerHTML = '<p style="color:red;">Ошибка: сервер не указан</p>';
+        } else {
+            loadServer();
+        }
+
+        async function loadServer() {
+            const docRef = doc(db, 'servers', serverId);
+            const snap = await getDoc(docRef);
+            if (!snap.exists()) {
+                container.innerHTML = '<p style="color:red;">Сервер не найден</p>';
+                return;
+            }
+
+            const server = { id: snap.id, ...snap.data() };
+            renderServerDetail(server);
+        }
+
+        async function renderServerDetail(server) {
+            // Проверяем статус
+            const status = await checkServerStatus(server.ip, server.port || 19132, true);
+
+            const user = auth.currentUser;
+            const isOwner = user && user.uid === server.ownerId;
+            
+            const hasVoted = user && server.voters?.includes(user.uid);
+
+            container.innerHTML = `
+                <h2>${server.name}</h2>
+                <div class="ip">${server.ip}:${server.port || 19132}</div>
+                <div class="status-badge ${status.online ? 'online' : 'offline'}">
+                    ${status.online ? '✅ Онлайн' : '❌ Оффлайн'}
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="label">Игроки</div>
+                        <div class="value">${status.online ? status.players : '—'} / ${status.online ? status.maxPlayers : '—'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Версия</div>
+                        <div class="value">${server.version || status.version || 'Неизвестно'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Голоса</div>
+                        <div class="value" id="voteCount">${server.votes || 0}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Владелец</div>
+                        <div class="value">${server.ownerEmail?.split('@')[0] || '—'}</div>
+                    </div>
+                </div>
+
+                <p><strong>Описание:</strong><br>${server.description || 'Нет описания'}</p>
+
+                <div class="vote-section">
+                    <button class="vote-btn" id="voteBtn">
+                        ${hasVoted ? '🔽 Убрать голос' : '👍 Голосовать'}
+                    </button>
+                    <span>Всего голосов: <span id="voteCountDisplay">${server.votes || 0}</span></span>
+                </div>
+
+                ${isOwner ? `
+                    <div class="owner-actions">
+                        <button class="btn" id="editBtn">✏️ Редактировать</button>
+                        <button class="btn delete-btn" id="deleteBtn">🗑️ Удалить сервер</button>
+                    </div>
+                ` : ''}
+            `;
+
+            // Обработчики
+            if (user) {
+                document.getElementById('voteBtn')?.addEventListener('click', async () => {
+                    try {
+                        const serverRef = doc(db, 'servers', serverId);
+                        const hasVotedNow = server.voters?.includes(user.uid);
+                        if (hasVotedNow) {
+                            await updateDoc(serverRef, {
+                                votes: increment(-1),
+                                voters: arrayRemove(user.uid)
+                            });
+                            document.getElementById('voteBtn').textContent = '👍 Голосовать';
+                            document.getElementById('voteCount').textContent = (server.votes - 1).toString();
+                            document.getElementById('voteCountDisplay').textContent = (server.votes - 1).toString();
+                            server.votes -= 1;
+                        } else {
+                            await updateDoc(serverRef, {
+                                votes: increment(1),
+                                voters: arrayUnion(user.uid)
+                            });
+                            document.getElementById('voteBtn').textContent = '🔽 Убрать голос';
+                            document.getElementById('voteCount').textContent = (server.votes + 1).toString();
+                            document.getElementById('voteCountDisplay').textContent = (server.votes + 1).toString();
+                            server.votes += 1;
+                        }
+                    } catch (e) {
+                        alert('Ошибка голосования: ' + e.message);
+                    }
+                });
+            } else {
+                document.getElementById('voteBtn')?.addEventListener('click', () => {
+                    window.location.href = 'login.html';
+                });
+            }
+
+            if (isOwner) {
+                document.getElementById('editBtn')?.addEventListener('click', () => {
+                    window.location.href = `edit-server.html?id=${serverId}`;
+                });
+
+                document.getElementById('deleteBtn')?.addEventListener('click', async () => {
+                    if (!confirm('Вы уверены, что хотите удалить сервер?')) return;
+                    try {
+                        await deleteDoc(doc(db, 'servers', serverId));
+                        window.location.href = 'index.html';
+                    } catch (e) {
+                        alert('Ошибка удаления: ' + e.message);
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
