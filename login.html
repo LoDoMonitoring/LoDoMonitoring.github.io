@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход / Регистрация — LodoMonitoring</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"
+            }
+        }
+    </script>
+    <style>
+        .auth-container {
+            max-width: 400px;
+            margin: 3rem auto;
+            background: #112f3f;
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #1e4a5f;
+        }
+        .auth-tab {
+            flex: 1;
+            text-align: center;
+            padding: 0.8rem;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: #b0e0e6;
+            font-size: 1.1rem;
+            transition: 0.2s;
+        }
+        .auth-tab.active {
+            color: #ffb74d;
+            border-bottom: 3px solid #ffb74d;
+            font-weight: bold;
+        }
+        .auth-form {
+            display: none;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+        .auth-form.active {
+            display: flex;
+        }
+        .auth-form input {
+            padding: 0.8rem;
+            border-radius: 8px;
+            border: 1px solid #1e4a5f;
+            background: #0b1a2b;
+            color: white;
+            font-size: 1rem;
+        }
+        .auth-form button {
+            background: #2e7d5e;
+            color: white;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .auth-form button:hover {
+            background: #3b9b73;
+        }
+        .error-message {
+            color: #ef5350;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="images/logo.png" alt="LodoMonitoring" width="40">
+            <h1>LodoMonitoring</h1>
+        </div>
+        <nav>
+            <a href="index.html">Главная</a>
+            <a href="dashboard.html">Добавить сервер</a>
+            <span id="auth-section"></span>
+        </nav>
+    </header>
+
+    <main>
+        <div class="auth-container">
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tabLogin">Вход</button>
+                <button class="auth-tab" id="tabRegister">Регистрация</button>
+            </div>
+
+            <!-- Форма входа -->
+            <div class="auth-form active" id="loginForm">
+                <input type="email" id="loginEmail" placeholder="Email" required>
+                <input type="password" id="loginPassword" placeholder="Пароль" required>
+                <button id="loginBtn">Войти</button>
+                <div class="error-message" id="loginError"></div>
+            </div>
+
+            <!-- Форма регистрации -->
+            <div class="auth-form" id="registerForm">
+                <input type="email" id="registerEmail" placeholder="Email" required>
+                <input type="password" id="registerPassword" placeholder="Пароль (минимум 6 символов)" required>
+                <input type="password" id="registerConfirm" placeholder="Повторите пароль" required>
+                <button id="registerBtn">Зарегистрироваться</button>
+                <div class="error-message" id="registerError"></div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { auth } from './js/firebase-config.js'; // предполагается, что auth уже экспортируется
+
+        // Элементы
+        const tabLogin = document.getElementById('tabLogin');
+        const tabRegister = document.getElementById('tabRegister');
+        const loginDiv = document.getElementById('loginForm');
+        const registerDiv = document.getElementById('registerForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const loginError = document.getElementById('loginError');
+        const registerError = document.getElementById('registerError');
+
+        // Переключение вкладок
+        tabLogin.addEventListener('click', () => {
+            tabLogin.classList.add('active');
+            tabRegister.classList.remove('active');
+            loginDiv.classList.add('active');
+            registerDiv.classList.remove('active');
+            loginError.textContent = '';
+        });
+
+        tabRegister.addEventListener('click', () => {
+            tabRegister.classList.add('active');
+            tabLogin.classList.remove('active');
+            registerDiv.classList.add('active');
+            loginDiv.classList.remove('active');
+            registerError.textContent = '';
+        });
+
+        // Вход
+        loginBtn.addEventListener('click', async () => {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            loginError.textContent = '';
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                loginError.textContent = 'Ошибка: ' + error.message;
+            }
+        });
+
+        // Регистрация
+        registerBtn.addEventListener('click', async () => {
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const confirm = document.getElementById('registerConfirm').value;
+            registerError.textContent = '';
+
+            if (password !== confirm) {
+                registerError.textContent = 'Пароли не совпадают';
+                return;
+            }
+            if (password.length < 6) {
+                registerError.textContent = 'Пароль должен быть не менее 6 символов';
+                return;
+            }
+
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                registerError.textContent = 'Ошибка: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>
